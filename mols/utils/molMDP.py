@@ -18,6 +18,18 @@ class BlockMoleculeData:
         self.stems = []           # [block1, bond1]
         self._mol = None
 
+    # print details of the BlockMoleculeData
+    def print(self):
+        print("----------printing block molecule data----------")
+        print("blockidxs: ", self.blockidxs) # corresponding index of the block from block_mols (list of blocks in mol object)
+        print("blocks: ", self.blocks) # contains all the blocks (in mol object) in the junction tree
+        print("slices: ", self.slices)
+        print("numblocks: ", self.numblocks) # total number of blocks in the junction tree
+        print("jbonds: ", self.jbonds)
+        print("stems: ", self.stems) # stems are atoms where new blocks can be attached to
+        print("_mol: ", self._mol)
+        print("-------------------completed-------------------")
+
     def add_block(self, block_idx, block, block_r, stem_idx, atmidx):
         """
 
@@ -49,6 +61,7 @@ class BlockMoleculeData:
             self.jbonds.append(bond)
             # destroy properties
             self._mol = None
+        self.print()
         return None
 
     def delete_blocks(self, block_mask):
