@@ -26,16 +26,16 @@ class BlockMoleculeData:
         print("slices: ", self.slices)
         print("numblocks: ", self.numblocks) # total number of blocks in the junction tree
         print("jbonds: ", self.jbonds)
-        print("stems: ", self.stems) # stems are atoms where new blocks can be attached to
+        print("stems: ", self.stems) # stems are atoms where new blocks can be attached to, stored as a list of pairs [block idx, block r group idx]
         print("_mol: ", self._mol)
         print("-------------------completed-------------------")
 
     def add_block(self, block_idx, block, block_r, stem_idx, atmidx):
         """
 
-        :param block_idx:
-        :param block:
-        :param block_r:
+        :param block_idx: the idx of the block to be added 
+        :param block: the block to be added
+        :param block_r: the r groups of the block
         :param stem_idx:
         :param atmidx:
         :return:
@@ -44,6 +44,8 @@ class BlockMoleculeData:
         self.blocks.append(block)
         self.slices.append(self.slices[-1] + block.GetNumAtoms())
         self.numblocks += 1
+        # stems is obtained from block_r list
+        # add all r groups of block except for the first which will be used to add the block
         [self.stems.append([self.numblocks-1,r]) for r in block_r[1:]]
 
         if len(self.blocks)==1:
@@ -189,7 +191,8 @@ class MolMDP:
         atmidx = self.molecule.remove_jbond(jbond_idx, atmidx)
         return atmidx
 
-    def random_walk(self, length):
+    def random_walk(self, length, seed):
+        np.random.seed(seed)
         done = False
         while not done:
             if self.molecule.numblocks==0:
@@ -202,9 +205,12 @@ class MolMDP:
                     else:
                         self.reset()
             elif len(self.molecule.stems) > 0:
+                # check if the current molecule have stems to allow addition of blocks
                 block_idx = np.random.choice(np.arange(self.num_blocks))
                 stem_idx = np.random.choice(len(self.molecule.stems))
                 self.add_block(block_idx=block_idx, stem_idx=stem_idx)
                 if self.molecule.numblocks >= length: done = True
             else:
+                # reset the random walk chain if the current molecule has no stems remaining
+                # meaning that it cannot add anymore blocks
                 self.reset()
