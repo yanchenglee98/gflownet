@@ -257,8 +257,17 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
         for j in range(args.ppo_num_epochs_per_step):
             idxs = dataset.train_rng.randint(0, len(samples), args.mbsize)
             mb = [samples[i] for i in idxs]
-            s, a, r, d, lp, v, G, A = dataset.sample2batch(zip(*mb))
 
+            # find out what is sample2batch is returning
+            s, a, r, d, lp, v, G, A = dataset.sample2batch(zip(*mb))
+            # s seems to be the current molecule/state which has been converted from mol to batch
+
+            # TODO: find out what s_o, m_o and model(s) does
+
+            # model(s) calls the overriden method 'forward' from nn.module which does a forward pass
+            # the forward method takes in a graph data
+            # and returns stem predictions and mol predictions
+            # more info here: https://pytorch.org/tutorials/beginner/examples_nn/polynomial_module.html 
             s_o, m_o = model(s)
             new_logprob = -model.action_negloglikelihood(s, a, 0, s_o, m_o)
             values = m_o[:, 1]
