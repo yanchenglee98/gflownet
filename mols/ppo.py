@@ -249,13 +249,20 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
 
     for i in range(num_steps):
         samples = []
+
+        # generate samples of BlockMoleculeData 
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             futures = [executor.submit(dataset._get_sample_model)
                        for i in range(args.ppo_num_samples_per_step)]
             for future in tqdm(concurrent.futures.as_completed(futures), leave=False):
                 samples += future.result()
+        
         for j in range(args.ppo_num_epochs_per_step):
+
+            # generates an array of random indexes
             idxs = dataset.train_rng.randint(0, len(samples), args.mbsize)
+
+            # randomly sample the generated samples using the random indexes 
             mb = [samples[i] for i in idxs]
 
             # find out what is sample2batch is returning

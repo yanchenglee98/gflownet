@@ -58,6 +58,9 @@ class BlockMoleculeData:
                 assert atmidx is None, "can't use stem and atom indices at the same time"
 
             stem = self.stems[stem_idx]
+
+            # junction bond definition:
+            # [index of block to be added to, index of block to be added, atom number of block to be added to, atom number of block that is added]
             bond = [stem[0], self.numblocks-1, stem[1], block_r[0]]
             self.stems.pop(stem_idx)
             self.jbonds.append(bond)
