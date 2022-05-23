@@ -66,7 +66,7 @@ class BlockMoleculeData:
             self.jbonds.append(bond)
             # destroy properties
             self._mol = None
-        self.print()
+        # self.print()
         return None
 
     def delete_blocks(self, block_mask):

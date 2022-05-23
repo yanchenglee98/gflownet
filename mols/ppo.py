@@ -77,6 +77,7 @@ class PPODataset(Dataset):
         super().__init__(args, bpath, device)
         self.current_dataset = []
 
+    # generates a list of (state, action, state', reward)
     def _get_sample_model(self):
         m = BlockMoleculeDataExtended()
         traj = []
@@ -116,6 +117,19 @@ class PPODataset(Dataset):
         return traj
 
     def sample2batch(self, mb):
+        '''
+        takes in a zipped list of transitions:
+
+        [<mol_mdp_ext.BlockMoleculeDataExtended object at 0x7f0ff1717c50>, # s: state 
+        (50, 0), # a: action
+        0, # reward
+        <mol_mdp_ext.BlockMoleculeDataExtended object at 0x7f0ff47786d0>, # sp: state prime / destination 
+        0, # d:
+        tensor(-4.6947, dtype=torch.float64), # lp: 
+        tensor(0.0214, dtype=torch.float64), # v: 
+        8.42027981857604e-08, # G:
+        tensor(-0.0214, dtype=torch.float64)] # A:
+        '''
         s, a, r, sp, d, lp, v, G, A = mb
         s = self.mdp.mols2batch([self.mdp.mol2repr(i) for i in s])
         a = torch.tensor(a, device=self._device).long()
@@ -181,7 +195,7 @@ _stop = [None]
 
 def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=True):
     debug_no_threads = False
-    device = torch.device('cuda')
+    device = torch.device('cpu')
 
     if num_steps is None:
         num_steps = args.num_iterations + 1
@@ -250,7 +264,7 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
     for i in range(num_steps):
         samples = []
 
-        # generate samples of BlockMoleculeData 
+        # generate samples of transitions of the MDP
         with concurrent.futures.ThreadPoolExecutor(max_workers=8) as executor:
             futures = [executor.submit(dataset._get_sample_model)
                        for i in range(args.ppo_num_samples_per_step)]
@@ -318,7 +332,7 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
 
 def main(args):
     bpath = "data/blocks_PDB_105.json"
-    device = torch.device('cuda')
+    device = torch.device('cpu')
 
     if args.floatX == 'float32':
         args.floatX = torch.float
