@@ -202,7 +202,7 @@ class MolMDPExtended(MolMDP):
         # see model_block.mol2graph
         self.true_block_set = sorted(set(self.block_smi))
         self.stem_type_offset = np.int32([0] + list(np.cumsum([
-            max(self.block_rs[self.block_smi.index(i)])+1 for i in self.true_block_set])))
+            max(self.block_rs[self.block_smi.index(i)])+1 for i in self.true_block_set]))) # gets the largest r group for each block and does a cumulative sum
         self.num_stem_types = self.stem_type_offset[-1]
         self.true_blockidx = [self.true_block_set.index(i) for i in self.block_smi]
         self.num_true_blocks = len(self.true_block_set)

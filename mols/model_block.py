@@ -137,11 +137,11 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
     # pair has its own embedding.
     stemtypes = [mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[1] for i in mol.stems]
 
-    data = Data(x=f([t[i] for i in mol.blockidxs]),
-                edge_index=f(edges).T if len(edges) else f([[],[]]),
-                edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)),
-                stems=f(mol.stems) if len(mol.stems) else f([(0,0)]),
-                stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types]))
+    data = Data(x=f([t[i] for i in mol.blockidxs]), # total number of blocks in the molecule
+                edge_index=f(edges).T if len(edges) else f([[],[]]), # a tensor representing the edge list which contains the from list and the to list
+                edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the embedded representation of the j bonds
+                stems=f(mol.stems) if len(mol.stems) else f([(0,0)]), # a tensor representing all the available stems 
+                stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types])) # a tensor containing the embedded representation of the available stems
     data.to(mdp.device)
     assert not bonds and not nblocks
     #print(data)
