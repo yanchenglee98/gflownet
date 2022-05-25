@@ -12,6 +12,14 @@ import torch_geometric.nn as gnn
 class GraphAgent(nn.Module):
 
     def __init__(self, nemb, nvec, out_per_stem, out_per_mol, num_conv_steps, mdp_cfg, version='v1'):
+        '''
+        nemb=256
+        nvec=0
+        out_per_stem=mdp.num_blocks
+        out_per_mol=1
+        num_conv_steps=10
+        version='v4'
+        '''
         super().__init__()
         print(version)
         if version == 'v5': version = 'v4'
@@ -24,7 +32,7 @@ class GraphAgent(nn.Module):
         nvec_1 = nvec * (version == 'v1' or version == 'v3')
         nvec_2 = nvec * (version == 'v2' or version == 'v3')
         self.block2emb = nn.Sequential(nn.Linear(nemb + nvec_1, nemb), nn.LeakyReLU(),
-                                       nn.Linear(nemb, nemb))
+                                       nn.Linear(nemb, nemb)) # Linear(input_sample_size, output_sample_size): Applies a linear transformation to the incoming data: y = xA^T + by
         self.gru = nn.GRU(nemb, nemb)
         self.stem2pred = nn.Sequential(nn.Linear(nemb * 2 + nvec_2, nemb), nn.LeakyReLU(),
                                        nn.Linear(nemb, nemb), nn.LeakyReLU(),
@@ -41,25 +49,25 @@ class GraphAgent(nn.Module):
 
     def forward(self, graph_data, vec_data=None, do_stems=True):
         blockemb, stememb, bondemb = self.embeddings
-        graph_data.x = blockemb(graph_data.x)
+        graph_data.x = blockemb(graph_data.x) # embed x 
         if do_stems:
-            graph_data.stemtypes = stememb(graph_data.stemtypes)
-        graph_data.edge_attr = bondemb(graph_data.edge_attr)
+            graph_data.stemtypes = stememb(graph_data.stemtypes) # embed stemtypes
+        graph_data.edge_attr = bondemb(graph_data.edge_attr) # embed edge_attr
         graph_data.edge_attr = (
             graph_data.edge_attr[:, 0][:, :, None] * graph_data.edge_attr[:, 1][:, None, :]
-        ).reshape((graph_data.edge_index.shape[1], self.nemb**2))
+        ).reshape((graph_data.edge_index.shape[1], self.nemb**2)) 
         out = graph_data.x
         if self.version == 'v1' or self.version == 'v3':
             batch_vec = vec_data[graph_data.batch]
             out = self.block2emb(torch.cat([out, batch_vec], 1))
         elif self.version == 'v2' or self.version == 'v4':
-            out = self.block2emb(out)
+            out = self.block2emb(out) # embed blocks in x using the Sequential block2emb
 
         h = out.unsqueeze(0)
 
         for i in range(self.num_conv_steps):
             m = F.leaky_relu(self.conv(out, graph_data.edge_index, graph_data.edge_attr))
-            out, h = self.gru(m.unsqueeze(0).contiguous(), h.contiguous())
+            out, h = self.gru(m.unsqueeze(0).contiguous(), h.contiguous()) # contiguous(): Returns a contiguous in memory tensor containing the same data as self tensor
             out = out.squeeze(0)
 
         # Index of the origin block of each stem in the batch (each
@@ -92,6 +100,7 @@ class GraphAgent(nn.Module):
         Z = gnn.global_add_pool(stem_e, s.stems_batch).sum(1) + mol_e + 1e-8
         return mol_e / Z, stem_e / Z[s.stems_batch, None]
 
+    # implement negative log-likelihood to use as the loss function
     def action_negloglikelihood(self, s, a, g, stem_o, mol_o):
         mol_p, stem_p = self.out_to_policy(s, stem_o, mol_o)
         #print(Z.shape, Z.min().item(), Z.mean().item(), Z.max().item())
@@ -137,7 +146,7 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
     # pair has its own embedding.
     stemtypes = [mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[1] for i in mol.stems]
 
-    data = Data(x=f([t[i] for i in mol.blockidxs]), # total number of blocks in the molecule
+    data = Data(x=f([t[i] for i in mol.blockidxs]), # index of blocks in the molecule
                 edge_index=f(edges).T if len(edges) else f([[],[]]), # a tensor representing the edge list which contains the from list and the to list
                 edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the embedded representation of the j bonds
                 stems=f(mol.stems) if len(mol.stems) else f([(0,0)]), # a tensor representing all the available stems 
