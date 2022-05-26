@@ -25,6 +25,7 @@ class GraphAgent(nn.Module):
         if version == 'v5': version = 'v4'
         self.version = version
         self.embeddings = nn.ModuleList([
+            # Embedding(size of dictionary of embeddings, size of each embedding vector)
             nn.Embedding(mdp_cfg.num_true_blocks + 1, nemb),
             nn.Embedding(mdp_cfg.num_stem_types + 1, nemb),
             nn.Embedding(mdp_cfg.num_stem_types, nemb)])
@@ -84,10 +85,10 @@ class GraphAgent(nn.Module):
                                           graph_data.stemtypes,
                                           vec_data[graph_data.stems_batch]], 1)
 
-            stem_preds = self.stem2pred(stem_out_cat)
+            stem_preds = self.stem2pred(stem_out_cat) # get the stem predictions from the stem data
         else:
             stem_preds = None
-        mol_preds = self.global2pred(gnn.global_mean_pool(out, graph_data.batch))
+        mol_preds = self.global2pred(gnn.global_mean_pool(out, graph_data.batch)) # get the mol predictions from the graph data
         return stem_preds, mol_preds
 
     def out_to_policy(self, s, stem_o, mol_o):
@@ -137,9 +138,10 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
         edge_attrs = [((mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[2]) * mdp.num_stem_types +
                        (mdp.stem_type_offset[t[mol.blockidxs[i[1]]]] + i[3]))
                       for i in mol.jbonds]
-    else:
-        edge_attrs = [(mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[2],
-                       mdp.stem_type_offset[t[mol.blockidxs[i[1]]]] + i[3])
+    else: # defining the attributes/features of each jbond/edge
+        # stem_type_offset is a list of the cumulative summation of the largest r group for each block
+        edge_attrs = [(mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[2], # feature 1: the offset of the from block
+                       mdp.stem_type_offset[t[mol.blockidxs[i[1]]]] + i[3]) # feature 2: the offset of the to block
                       for i in mol.jbonds]
     # Here stem_type_offset is a list of offsets to know which
     # embedding to use for a particular stem. Each (blockidx, atom)
@@ -148,7 +150,7 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
 
     data = Data(x=f([t[i] for i in mol.blockidxs]), # index of blocks in the molecule
                 edge_index=f(edges).T if len(edges) else f([[],[]]), # a tensor representing the edge list which contains the from list and the to list
-                edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the embedded representation of the j bonds
+                edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the features of the j bonds/edges
                 stems=f(mol.stems) if len(mol.stems) else f([(0,0)]), # a tensor representing all the available stems 
                 stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types])) # a tensor containing the embedded representation of the available stems
     data.to(mdp.device)
