@@ -28,7 +28,7 @@ class GraphAgent(nn.Module):
             nn.Embedding(mdp_cfg.num_true_blocks + 1, nemb),
             nn.Embedding(mdp_cfg.num_stem_types + 1, nemb),
             nn.Embedding(mdp_cfg.num_stem_types, nemb)])
-        self.conv = gnn.NNConv(nemb, nemb, nn.Sequential(), aggr='mean')
+        self.conv = gnn.NNConv(nemb, nemb, nn.Sequential(), aggr='mean') # this is a message passing NN
         nvec_1 = nvec * (version == 'v1' or version == 'v3')
         nvec_2 = nvec * (version == 'v2' or version == 'v3')
         self.block2emb = nn.Sequential(nn.Linear(nemb + nvec_1, nemb), nn.LeakyReLU(),
@@ -66,7 +66,7 @@ class GraphAgent(nn.Module):
         h = out.unsqueeze(0)
 
         for i in range(self.num_conv_steps):
-            m = F.leaky_relu(self.conv(out, graph_data.edge_index, graph_data.edge_attr))
+            m = F.leaky_relu(self.conv(out, graph_data.edge_index, graph_data.edge_attr)) # passes the graph into the MPNN and then leaky_relu
             out, h = self.gru(m.unsqueeze(0).contiguous(), h.contiguous()) # contiguous(): Returns a contiguous in memory tensor containing the same data as self tensor
             out = out.squeeze(0)
 
