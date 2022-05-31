@@ -91,6 +91,40 @@ class GraphAgent(nn.Module):
         mol_preds = self.global2pred(gnn.global_mean_pool(out, graph_data.batch)) # get the mol predictions from the graph data
         return stem_preds, mol_preds
 
+    # get the stem_out_cat variable
+    def get_stem_out_cat(self, graph_data, vec_data=None, do_stems=True):
+        blockemb, stememb, bondemb = self.embeddings
+        graph_data.x = blockemb(graph_data.x) # embed x 
+        if do_stems:
+            graph_data.stemtypes = stememb(graph_data.stemtypes) # embed stemtypes
+        graph_data.edge_attr = bondemb(graph_data.edge_attr) # embed edge_attr
+        graph_data.edge_attr = (
+            graph_data.edge_attr[:, 0][:, :, None] * graph_data.edge_attr[:, 1][:, None, :]
+        ).reshape((graph_data.edge_index.shape[1], self.nemb**2)) 
+        out = graph_data.x
+        if self.version == 'v1' or self.version == 'v3':
+            batch_vec = vec_data[graph_data.batch]
+            out = self.block2emb(torch.cat([out, batch_vec], 1))
+        elif self.version == 'v2' or self.version == 'v4':
+            out = self.block2emb(out) # embed blocks in x using the Sequential block2emb
+
+        h = out.unsqueeze(0)
+
+        for i in range(self.num_conv_steps):
+            m = F.leaky_relu(self.conv(out, graph_data.edge_index, graph_data.edge_attr)) # passes the graph into the MPNN and then leaky_relu
+            out, h = self.gru(m.unsqueeze(0).contiguous(), h.contiguous()) # contiguous(): Returns a contiguous in memory tensor containing the same data as self tensor
+            out = out.squeeze(0)
+
+        # Index of the origin block of each stem in the batch (each
+        # stem is a pair [block idx, stem atom type], we need to
+        # adjust for the batch packing)
+        stem_block_batch_idx = (
+            torch.tensor(graph_data.__slices__['x'], device=out.device)[graph_data.stems_batch]
+            + graph_data.stems[:, 0])
+        stem_out_cat = torch.cat([out[stem_block_batch_idx], graph_data.stemtypes], 1)
+        print('stem_block_batch_idx: ', stem_block_batch_idx)
+        return stem_out_cat
+
     def out_to_policy(self, s, stem_o, mol_o):
         if self.categorical_style == 'softmax':
             stem_e = torch.exp(stem_o)
