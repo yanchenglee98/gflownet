@@ -163,7 +163,8 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
             edge_index=f([[],[]]),
             edge_attr=f([]).reshape((0,2)),
             stems=f([(0,0)]),
-            stemtypes=f([mdp.num_stem_types])) # also extra stem type embedding
+            stemtypes=f([mdp.num_stem_types]), # also extra stem type embedding
+            edges = f([]))
         return data
     edges = [(i[0], i[1]) for i in mol.jbonds]
     #edge_attrs = [mdp.bond_type_offset[i[2]] +  i[3] for i in mol.jbonds]
@@ -186,7 +187,8 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
                 edge_index=f(edges).T if len(edges) else f([[],[]]), # a tensor representing the edge list which contains the from list and the to list
                 edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the features of the j bonds/edges
                 stems=f(mol.stems) if len(mol.stems) else f([(0,0)]), # a tensor representing all the available stems 
-                stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types])) # a tensor containing the embedded representation of the available stems
+                stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types]), # a tensor containing the embedded representation of the available stems
+                edges=f(edges) if len(edges) else f([]))
     data.to(mdp.device)
     assert not bonds and not nblocks
     #print(data)
