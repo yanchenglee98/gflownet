@@ -166,7 +166,10 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
             stemtypes=f([mdp.num_stem_types]), # also extra stem type embedding
             edges = f([]))
         return data
-    edges = [(i[0], i[1]) for i in mol.jbonds]
+    edges = []
+    for i in mol.jbonds:
+      edges.append((i[0], i[1]))
+      edges.append((i[1], i[0]))
     #edge_attrs = [mdp.bond_type_offset[i[2]] +  i[3] for i in mol.jbonds]
     t = mdp.true_blockidx
     if 0:
