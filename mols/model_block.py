@@ -47,6 +47,10 @@ class GraphAgent(nn.Module):
         self.categorical_style = 'softmax'
         self.escort_p = 6
 
+        # self defined layers for new MPNN implementation
+        self.nodelayer1 = nn.Linear(256, 256)
+        self.nodelayer2 = nn.Linear(256, 256) # pass the sum of node embedding + the output from all neighbours
+
 
     def forward(self, graph_data, vec_data=None, do_stems=True):
         blockemb, stememb, bondemb = self.embeddings
@@ -90,6 +94,82 @@ class GraphAgent(nn.Module):
             stem_preds = None
         mol_preds = self.global2pred(gnn.global_mean_pool(out, graph_data.batch)) # get the mol predictions from the graph data
         return stem_preds, mol_preds
+
+    # alternative forward method with self implemented MPNN
+    def forward2(self, graph_data, vec_data=None, do_stems=True):
+        # forward method
+        blockemb, stememb, bondemb = self.embeddings
+        graph_data.x = blockemb(graph_data.x) # embed x 
+
+        if do_stems:
+            graph_data.stemtypes = stememb(graph_data.stemtypes) # embed stemtypes
+
+        graph_data.edge_attr = bondemb(graph_data.edge_attr) # embed edge_attr
+        
+        # sum the from and to embeddings for each edge
+        # use sum instead of concat as it needs to be commutative
+        # e.g. [0,5] and [5,0] will have different edge_embedding if concat is used
+        graph_data.edge_attr = (graph_data.edge_attr[:, 0] + graph_data.edge_attr[:, 1])
+        
+        out = graph_data.x
+
+        if self.version == 'v1' or self.version == 'v3':
+            batch_vec = vec_data[graph_data.batch]
+            out = self.block2emb(torch.cat([out, batch_vec], 1))
+        elif self.version == 'v2' or self.version == 'v4':
+            out = self.block2emb(out) # embed blocks in x using the Sequential block2emb
+        
+        h = out.unsqueeze(0)
+
+        # TODO: implement MPNN from ground up
+        l = []
+        for i in range(graph_data.x.size(0)): # iterate through each node in the molecule
+            # iterate through its neighbours 
+            neighbours = torch.zeros(256)
+            neighboursIndices = self.getAllNeighbours(i, graph_data.edges) # get the edge indices of all current node's neighbours
+            for idx, isFlipped in neighboursIndices:
+                temp = (graph_data.edge_attr[idx])
+                # sum the edge attr embedding with the to node embedding
+                toIndex = graph_data.edges[idx][0 if isFlipped else 1] # get the index of the neighbouring node
+                temp = temp + self.nodelayer1(out[toIndex]) # pass the node through a linear layer
+                neighbours = neighbours + temp # sum up all the current nodes neighbours
+
+            neighbours = neighbours / (len(neighboursIndices) if len(neighboursIndices) else 1) # get average of all neighbours
+            # sum with the current node embedding
+            newSum = neighbours + out[i]
+            l.append(self.nodelayer2(newSum))
+        out = torch.stack(l)
+
+        # Index of the origin block of each stem in the batch (each
+        # stem is a pair [block idx, stem atom type], we need to
+        # adjust for the batch packing)
+        if do_stems:
+            stem_block_batch_idx = (
+                torch.tensor(graph_data.__slices__['x'], device=out.device)[graph_data.stems_batch]
+                + graph_data.stems[:, 0])
+            stem_out_cat = torch.cat([out[stem_block_batch_idx], graph_data.stemtypes], 1)
+
+            stem_preds = self.stem2pred(stem_out_cat) # get the stem predictions from the stem data
+        else:
+            stem_preds = None
+
+        # get the mol predictions from the graph data
+        mol_preds = self.global2pred(gnn.global_mean_pool(out, graph_data.batch))
+        return stem_preds, mol_preds
+
+    # takes in the index of the node and the edgelist
+    # returns the index of the edges that are connected to the specified node
+    def getAllNeighbours(self, index, edges):
+        res = []
+        for i in range(len(edges)):
+            edge = edges[i]
+            fromNode = edge[0]
+            toNode = edge[1]
+            if fromNode == index:
+                res.append((i, False))  # boolean to indicate if the edge is flipped
+            elif toNode == index:
+                res.append((i, True))
+        return res
 
     # get the stem_out_cat variable
     def get_stem_out_cat(self, graph_data, vec_data=None, do_stems=True):
