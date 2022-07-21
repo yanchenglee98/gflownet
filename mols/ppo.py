@@ -116,6 +116,14 @@ class PPODataset(Dataset):
         self.sampled_mols.append((r, m))
         return traj
 
+    def _get_reward(self, m):
+        rdmol = m.mol
+        if rdmol is None:
+            return self.R_min
+        from rdkit.Chem import QED
+        ls = list(QED.properties(rdmol))
+        return ls[1]
+    
     def sample2batch(self, mb):
         '''
         takes in a zipped list of transitions:
