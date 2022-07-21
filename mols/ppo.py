@@ -123,7 +123,7 @@ class PPODataset(Dataset):
         from rdkit.Chem import QED
         ls = list(QED.properties(rdmol))
         return ls[1]
-    
+
     def sample2batch(self, mb):
         '''
         takes in a zipped list of transitions:

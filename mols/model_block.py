@@ -52,7 +52,7 @@ class GraphAgent(nn.Module):
         self.nodelayer2 = nn.Linear(256, 256) # pass the sum of node embedding + the output from all neighbours
 
 
-    def forward(self, graph_data, vec_data=None, do_stems=True):
+    def forward2(self, graph_data, vec_data=None, do_stems=True):
         blockemb, stememb, bondemb = self.embeddings
         graph_data.x = blockemb(graph_data.x) # embed x 
         if do_stems:
@@ -96,7 +96,7 @@ class GraphAgent(nn.Module):
         return stem_preds, mol_preds
 
     # alternative forward method with self implemented MPNN
-    def forward2(self, graph_data, vec_data=None, do_stems=True):
+    def forward(self, graph_data, vec_data=None, do_stems=True):
         # forward method
         blockemb, stememb, bondemb = self.embeddings
         graph_data.x = blockemb(graph_data.x) # embed x 
@@ -125,7 +125,7 @@ class GraphAgent(nn.Module):
         l = []
         for i in range(graph_data.x.size(0)): # iterate through each node in the molecule
             # iterate through its neighbours 
-            neighbours = torch.zeros(256)
+            neighbours = torch.zeros(256, torch.device("cuda" if torch.cuda.is_available() else "cpu"))
             neighboursIndices = self.getAllNeighbours(i, graph_data.edges) # get the edge indices of all current node's neighbours
             for idx, isFlipped in neighboursIndices:
                 temp = (graph_data.edge_attr[idx])
