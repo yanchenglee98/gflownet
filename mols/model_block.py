@@ -131,13 +131,13 @@ class GraphAgent(nn.Module):
                 temp = (graph_data.edge_attr[idx])
                 # sum the edge attr embedding with the to node embedding
                 toIndex = graph_data.edges[idx][0 if isFlipped else 1] # get the index of the neighbouring node
-                temp = temp + self.nodelayer1(out[toIndex]) # pass the node through a linear layer
+                temp = temp + F.leaky_relu(self.nodelayer1(out[toIndex])) # pass the node through a linear layer
                 neighbours = neighbours + temp # sum up all the current nodes neighbours
 
             neighbours = neighbours / (len(neighboursIndices) if len(neighboursIndices) else 1) # get average of all neighbours
             # sum with the current node embedding
             newSum = neighbours + out[i]
-            l.append(self.nodelayer2(newSum))
+            l.append(F.leaky_relu(self.nodelayer2(newSum)))
         out = torch.stack(l)
 
         # Index of the origin block of each stem in the batch (each
