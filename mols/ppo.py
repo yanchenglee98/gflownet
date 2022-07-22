@@ -203,7 +203,7 @@ _stop = [None]
 
 def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=True):
     debug_no_threads = False
-    device = torch.device('cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if num_steps is None:
         num_steps = args.num_iterations + 1
@@ -340,7 +340,7 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
 
 def main(args):
     bpath = "data/blocks_PDB_105.json"
-    device = torch.device('cpu')
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if args.floatX == 'float32':
         args.floatX = torch.float
