@@ -125,7 +125,7 @@ class GraphAgent(nn.Module):
         l = []
         for i in range(graph_data.x.size(0)): # iterate through each node in the molecule
             # iterate through its neighbours 
-            neighbours = torch.zeros(256, torch.device("cuda" if torch.cuda.is_available() else "cpu"))
+            neighbours = torch.zeros(256, device=torch.device("cuda" if torch.cuda.is_available() else "cpu"))
             neighboursIndices = self.getAllNeighbours(i, graph_data.edges) # get the edge indices of all current node's neighbours
             for idx, isFlipped in neighboursIndices:
                 temp = (graph_data.edge_attr[idx])
