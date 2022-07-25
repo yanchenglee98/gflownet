@@ -244,10 +244,20 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
             edge_attr=f([]).reshape((0,2)),
             stems=f([(0,0)]),
             stemtypes=f([mdp.num_stem_types]), # also extra stem type embedding
-            edges = f([]))
+            edges = f([]),
+            affinity = f([]))
         return data
     edges = [(i[0], i[1]) for i in mol.jbonds]
     #edge_attrs = [mdp.bond_type_offset[i[2]] +  i[3] for i in mol.jbonds]
+
+    # build the affinity matrix
+    affinity = torch.zeros(len(mol.blockidxs),len(mol.blockidxs), device=mdp.device)
+    for edge in edges:
+        fromNode = edge[0]
+        toNode = edge[1]
+        affinity[fromNode][toNode] = 1
+        affinity[toNode][fromNode] = 1
+
     t = mdp.true_blockidx
     if 0:
         edge_attrs = [((mdp.stem_type_offset[t[mol.blockidxs[i[0]]]] + i[2]) * mdp.num_stem_types +
@@ -268,7 +278,8 @@ def mol2graph(mol, mdp, floatX=torch.float, bonds=False, nblocks=False):
                 edge_attr=f(edge_attrs) if len(edges) else f([]).reshape((0,2)), # a tensor containing the features of the j bonds/edges
                 stems=f(mol.stems) if len(mol.stems) else f([(0,0)]), # a tensor representing all the available stems 
                 stemtypes=f(stemtypes) if len(mol.stems) else f([mdp.num_stem_types]), # a tensor containing the embedded representation of the available stems
-                edges=f(edges) if len(edges) else f([]))
+                edges=f(edges) if len(edges) else f([]),
+                affinity=affinity)
     data.to(mdp.device)
     assert not bonds and not nblocks
     #print(data)
