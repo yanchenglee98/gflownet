@@ -212,6 +212,17 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
     if args.bootstrap_tau > 0:
         target_model = deepcopy(model)
 
+    # load previous params if it exists 
+    filepath = f'{args.save_path}/{args.array}_{args.run}/params.pkl.gz'
+    import os.path
+    if os.path.exists(filepath):
+        # load previous params into the model
+        f = gzip.open(filepath, 'rb') # load generated params from ppo training, only usable when ppo.py has been run and file is generated
+        params = pickle.load(f)
+        for a,b in zip(model.parameters(), params):
+            a.data = torch.tensor(b)
+        print("load previous params")     
+
     if do_save:
         exp_dir = f'{args.save_path}/{args.array}_{args.run}/'
         os.makedirs(exp_dir, exist_ok=True)
