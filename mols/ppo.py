@@ -220,7 +220,7 @@ def train_model_with_proxy(args, model, proxy, dataset, num_steps=None, do_save=
         f = gzip.open(filepath, 'rb') # load generated params from ppo training, only usable when ppo.py has been run and file is generated
         params = pickle.load(f)
         for a,b in zip(model.parameters(), params):
-            a.data = torch.tensor(b)
+            a.data = torch.tensor(b, device=device)
         print("load previous params")     
 
     if do_save:
